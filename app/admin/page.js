@@ -8,8 +8,11 @@ import { Separator } from '@/components/ui/separator';
 import {
   GraduationCap, Users, BookOpen, Trophy, MessageCircle, FileText,
   LogOut, Plus, Trash2, Edit, Upload, Eye, BarChart3, Settings,
-  Home, Mail, Phone, User, ChevronRight, X, Save, Download, Search
+  Home, Mail, Phone, User, ChevronRight, X, Save, Download, Search,
+  Bell, Image as ImageIcon, ToggleLeft, ToggleRight
 } from 'lucide-react';
+
+const LOGO_URL = 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/yciyivjg_RW_SWAMI%20_FLEX.png';
 
 const API_BASE = '/api';
 
@@ -98,13 +101,19 @@ export default function AdminPage() {
   const [contacts, setContacts] = useState([]);
   const [users, setUsers] = useState([]);
   const [settings, setSettings] = useState({});
+  const [announcements, setAnnouncements] = useState([]);
+  const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Form states
-  const [staffForm, setStaffForm] = useState({ name: '', designation: '', description: '', photo_url: '', order: 99 });
+  const [staffForm, setStaffForm] = useState({ name: '', designation: '', description: '', photo_url: '', order: 99, is_founder: false });
   const [resultForm, setResultForm] = useState({ student_name: '', exam: 'JEE', marks: '', percentile: '', year: '2025', photo_url: '' });
   const [noteForm, setNoteForm] = useState({ title: '', subject: 'Physics', file_url: '' });
+  const [announcementForm, setAnnouncementForm] = useState({ text: '', active: true, priority: 1 });
+  const [bannerForm, setBannerForm] = useState({ title: '', description: '', image_url: '', active: true, order: 1 });
   const [editingStaff, setEditingStaff] = useState(null);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
+  const [editingBanner, setEditingBanner] = useState(null);
   const [directorMessage, setDirectorMessage] = useState('');
 
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
@@ -117,7 +126,7 @@ export default function AdminPage() {
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [statsR, staffR, coursesR, resultsR, notesR, contactsR, usersR, settingsR] = await Promise.all([
+      const [statsR, staffR, coursesR, resultsR, notesR, contactsR, usersR, settingsR, announcementsR, bannersR] = await Promise.all([
         fetch(`${API_BASE}/stats`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/staff`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/courses`, { headers }).then(r => r.json()),
@@ -126,6 +135,8 @@ export default function AdminPage() {
         fetch(`${API_BASE}/contacts`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/users`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/settings`, { headers }).then(r => r.json()),
+        fetch(`${API_BASE}/announcements`, { headers }).then(r => r.json()),
+        fetch(`${API_BASE}/banners`, { headers }).then(r => r.json()),
       ]);
       setStats(statsR.stats || {});
       setStaff(staffR.staff || []);
@@ -137,6 +148,8 @@ export default function AdminPage() {
       const s = settingsR.settings || {};
       setSettings(s);
       setDirectorMessage(s.directorMessage || '');
+      setAnnouncements(announcementsR.announcements || []);
+      setBanners(bannersR.banners || []);
     } catch (err) {
       console.error('Fetch error:', err);
     }
@@ -224,12 +237,68 @@ export default function AdminPage() {
     fetchData();
   };
 
+  // Announcements CRUD
+  const addAnnouncement = async () => {
+    if (!announcementForm.text) return;
+    await fetch(`${API_BASE}/announcements`, { method: 'POST', headers, body: JSON.stringify(announcementForm) });
+    setAnnouncementForm({ text: '', active: true, priority: 1 });
+    fetchData();
+  };
+
+  const updateAnnouncement = async () => {
+    if (!editingAnnouncement) return;
+    await fetch(`${API_BASE}/announcements`, { method: 'PUT', headers, body: JSON.stringify({ ...announcementForm, id: editingAnnouncement }) });
+    setEditingAnnouncement(null);
+    setAnnouncementForm({ text: '', active: true, priority: 1 });
+    fetchData();
+  };
+
+  const deleteAnnouncement = async (id) => {
+    if (!confirm('Delete this announcement?')) return;
+    await fetch(`${API_BASE}/announcements?id=${id}`, { method: 'DELETE', headers });
+    fetchData();
+  };
+
+  const toggleAnnouncement = async (ann) => {
+    await fetch(`${API_BASE}/announcements`, { method: 'PUT', headers, body: JSON.stringify({ id: ann.id, active: !ann.active }) });
+    fetchData();
+  };
+
+  // Banners CRUD
+  const addBanner = async () => {
+    if (!bannerForm.title && !bannerForm.image_url) return;
+    await fetch(`${API_BASE}/banners`, { method: 'POST', headers, body: JSON.stringify(bannerForm) });
+    setBannerForm({ title: '', description: '', image_url: '', active: true, order: 1 });
+    fetchData();
+  };
+
+  const updateBanner = async () => {
+    if (!editingBanner) return;
+    await fetch(`${API_BASE}/banners`, { method: 'PUT', headers, body: JSON.stringify({ ...bannerForm, id: editingBanner }) });
+    setEditingBanner(null);
+    setBannerForm({ title: '', description: '', image_url: '', active: true, order: 1 });
+    fetchData();
+  };
+
+  const deleteBanner = async (id) => {
+    if (!confirm('Delete this banner?')) return;
+    await fetch(`${API_BASE}/banners?id=${id}`, { method: 'DELETE', headers });
+    fetchData();
+  };
+
+  const toggleBanner = async (banner) => {
+    await fetch(`${API_BASE}/banners`, { method: 'PUT', headers, body: JSON.stringify({ id: banner.id, active: !banner.active }) });
+    fetchData();
+  };
+
   if (!token) return <AdminLogin onLogin={setToken} />;
 
   const sidebarItems = [
     { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { key: 'staff', label: 'Staff Management', icon: Users },
     { key: 'results', label: 'Top Performers', icon: Trophy },
+    { key: 'announcements', label: 'Announcements', icon: Bell },
+    { key: 'banners', label: 'Banners', icon: ImageIcon },
     { key: 'notes', label: 'Notes / PDFs', icon: FileText },
     { key: 'contacts', label: 'Contact Enquiries', icon: Mail },
     { key: 'students', label: 'Registered Students', icon: User },
@@ -242,11 +311,9 @@ export default function AdminPage() {
       <aside className="w-64 bg-royal-800 text-white hidden lg:flex flex-col">
         <div className="p-5 border-b border-white/10">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-royal-800" />
-            </div>
+            <img src={LOGO_URL} alt="RW" className="w-9 h-9 rounded-full object-cover" />
             <div>
-              <h2 className="font-bold text-sm">RESULT WALLAH</h2>
+              <h2 className="font-bold text-sm">RESULT WALLAH<sup className="text-[6px]">&trade;</sup></h2>
               <p className="text-[10px] text-gold-light">Admin Dashboard</p>
             </div>
           </div>
@@ -349,12 +416,16 @@ export default function AdminPage() {
                     <label className="text-sm font-medium text-gray-700 mb-1 block">Display Order</label>
                     <Input type="number" value={staffForm.order} onChange={e => setStaffForm(p => ({ ...p, order: parseInt(e.target.value) || 99 }))} />
                   </div>
+                  <div className="flex items-center gap-2 mt-6">
+                    <input type="checkbox" id="is_founder" checked={staffForm.is_founder || false} onChange={e => setStaffForm(p => ({ ...p, is_founder: e.target.checked }))} />
+                    <label htmlFor="is_founder" className="text-sm font-medium text-gray-700">Mark as Founder</label>
+                  </div>
                 </div>
                 <div className="flex gap-3 mt-4">
                   {editingStaff ? (
                     <>
                       <Button onClick={updateStaff} className="bg-royal-800 hover:bg-royal-700"><Save className="w-4 h-4 mr-2" /> Update</Button>
-                      <Button variant="outline" onClick={() => { setEditingStaff(null); setStaffForm({ name: '', designation: '', description: '', photo_url: '', order: 99 }); }}>Cancel</Button>
+                      <Button variant="outline" onClick={() => { setEditingStaff(null); setStaffForm({ name: '', designation: '', description: '', photo_url: '', order: 99, is_founder: false }); }}>Cancel</Button>
                     </>
                   ) : (
                     <Button onClick={addStaff} className="bg-royal-800 hover:bg-royal-700"><Plus className="w-4 h-4 mr-2" /> Add Staff</Button>
@@ -377,7 +448,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => { setEditingStaff(s.id); setStaffForm({ name: s.name, designation: s.designation, description: s.description, photo_url: s.photo_url, order: s.order }); }}><Edit className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingStaff(s.id); setStaffForm({ name: s.name, designation: s.designation, description: s.description, photo_url: s.photo_url, order: s.order, is_founder: s.is_founder || false }); }}><Edit className="w-3 h-3" /></Button>
                       <Button size="sm" variant="destructive" onClick={() => deleteStaff(s.id)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
                   </CardContent>
@@ -585,6 +656,163 @@ export default function AdminPage() {
               </CardContent>
             </Card>
             <Button onClick={saveSettings} className="bg-royal-800 hover:bg-royal-700"><Save className="w-4 h-4 mr-2" /> Save All Settings</Button>
+          </div>
+        )}
+
+        {/* Announcements */}
+        {activeTab === 'announcements' && (
+          <div>
+            <h2 className="text-2xl font-bold text-royal-800 mb-6">Announcements</h2>
+            <Card className="border-0 shadow-lg mb-6">
+              <CardHeader><CardTitle className="text-lg">{editingAnnouncement ? 'Edit Announcement' : 'Add Announcement'}</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Announcement Text *</label>
+                    <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px]" value={announcementForm.text} onChange={e => setAnnouncementForm(p => ({ ...p, text: e.target.value }))} placeholder="Enter announcement text..." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">Priority (lower = higher priority)</label>
+                      <Input type="number" value={announcementForm.priority} onChange={e => setAnnouncementForm(p => ({ ...p, priority: parseInt(e.target.value) || 1 }))} />
+                    </div>
+                    <div className="flex items-center gap-2 mt-6">
+                      <input type="checkbox" id="ann_active" checked={announcementForm.active} onChange={e => setAnnouncementForm(p => ({ ...p, active: e.target.checked }))} />
+                      <label htmlFor="ann_active" className="text-sm font-medium text-gray-700">Active</label>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  {editingAnnouncement ? (
+                    <>
+                      <Button onClick={updateAnnouncement} className="bg-royal-800 hover:bg-royal-700"><Save className="w-4 h-4 mr-2" /> Update</Button>
+                      <Button variant="outline" onClick={() => { setEditingAnnouncement(null); setAnnouncementForm({ text: '', active: true, priority: 1 }); }}>Cancel</Button>
+                    </>
+                  ) : (
+                    <Button onClick={addAnnouncement} className="bg-royal-800 hover:bg-royal-700"><Plus className="w-4 h-4 mr-2" /> Add Announcement</Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-3">
+              {announcements.map(ann => (
+                <Card key={ann.id} className="border-0 shadow">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      <Bell className={`w-5 h-5 flex-shrink-0 ${ann.active ? 'text-gold' : 'text-gray-300'}`} />
+                      <div className="flex-1">
+                        <p className={`text-sm ${ann.active ? 'font-medium' : 'text-gray-400'}`}>{ann.text}</p>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">Priority: {ann.priority}</Badge>
+                          <Badge className={`text-xs ${ann.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {ann.active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => toggleAnnouncement(ann)}>
+                        {ann.active ? <ToggleRight className="w-4 h-4 text-green-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingAnnouncement(ann.id); setAnnouncementForm({ text: ann.text, active: ann.active, priority: ann.priority }); }}>
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteAnnouncement(ann.id)}><Trash2 className="w-3 h-3" /></Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {announcements.length === 0 && <p className="text-gray-400 text-center py-8">No announcements yet</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Banners */}
+        {activeTab === 'banners' && (
+          <div>
+            <h2 className="text-2xl font-bold text-royal-800 mb-6">Banner Management</h2>
+            <Card className="border-0 shadow-lg mb-6">
+              <CardHeader><CardTitle className="text-lg">{editingBanner ? 'Edit Banner' : 'Add Banner'}</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Title</label>
+                    <Input value={bannerForm.title} onChange={e => setBannerForm(p => ({ ...p, title: e.target.value }))} placeholder="Banner title" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Display Order</label>
+                    <Input type="number" value={bannerForm.order} onChange={e => setBannerForm(p => ({ ...p, order: parseInt(e.target.value) || 1 }))} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Description</label>
+                    <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[60px]" value={bannerForm.description} onChange={e => setBannerForm(p => ({ ...p, description: e.target.value }))} placeholder="Banner description" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Banner Image</label>
+                    <input type="file" accept="image/*" className="text-sm" onChange={async (e) => {
+                      if (e.target.files[0]) {
+                        const url = await handleFileUpload(e.target.files[0], 'banners');
+                        setBannerForm(p => ({ ...p, image_url: url }));
+                      }
+                    }} />
+                    {bannerForm.image_url && <img src={bannerForm.image_url} alt="Preview" className="w-full h-24 object-cover rounded mt-2" />}
+                  </div>
+                  <div className="flex items-center gap-2 mt-6">
+                    <input type="checkbox" id="banner_active" checked={bannerForm.active} onChange={e => setBannerForm(p => ({ ...p, active: e.target.checked }))} />
+                    <label htmlFor="banner_active" className="text-sm font-medium text-gray-700">Active</label>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  {editingBanner ? (
+                    <>
+                      <Button onClick={updateBanner} className="bg-royal-800 hover:bg-royal-700"><Save className="w-4 h-4 mr-2" /> Update</Button>
+                      <Button variant="outline" onClick={() => { setEditingBanner(null); setBannerForm({ title: '', description: '', image_url: '', active: true, order: 1 }); }}>Cancel</Button>
+                    </>
+                  ) : (
+                    <Button onClick={addBanner} className="bg-royal-800 hover:bg-royal-700"><Plus className="w-4 h-4 mr-2" /> Add Banner</Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-4">
+              {banners.map(b => (
+                <Card key={b.id} className="border-0 shadow overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex items-center">
+                      {b.image_url && (
+                        <div className="w-48 h-28 flex-shrink-0 overflow-hidden">
+                          <img src={b.image_url} alt={b.title} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="p-4 flex-1 flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold">{b.title || 'Untitled Banner'}</p>
+                          {b.description && <p className="text-sm text-gray-500 mt-1">{b.description}</p>}
+                          <div className="flex gap-2 mt-2">
+                            <Badge variant="outline" className="text-xs">Order: {b.order}</Badge>
+                            <Badge className={`text-xs ${b.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {b.active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => toggleBanner(b)}>
+                            {b.active ? <ToggleRight className="w-4 h-4 text-green-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingBanner(b.id); setBannerForm({ title: b.title, description: b.description, image_url: b.image_url, active: b.active, order: b.order }); }}>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => deleteBanner(b.id)}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {banners.length === 0 && <p className="text-gray-400 text-center py-8">No banners yet</p>}
+            </div>
           </div>
         )}
       </main>

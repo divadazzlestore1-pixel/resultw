@@ -9,8 +9,11 @@ import {
   GraduationCap, BookOpen, Users, Trophy, Phone, Mail, MapPin, Menu, X,
   ChevronRight, Star, Download, ArrowRight, Clock, Shield, Zap, Target,
   Award, HeartPulse, Atom, RefreshCw, MessageCircle, Facebook, Instagram,
-  Send, CheckCircle, Brain, Wifi, FlaskConical, BookMarked, ChevronDown
+  Send, CheckCircle, Brain, Wifi, FlaskConical, BookMarked, ChevronDown,
+  Bell, ChevronLeft, Image as ImageIcon, Volume2
 } from 'lucide-react';
+
+const LOGO_URL = 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/yciyivjg_RW_SWAMI%20_FLEX.png';
 
 const ICON_MAP = {
   'atom': Atom,
@@ -73,12 +76,93 @@ function SectionTitle({ title, subtitle, light = false }) {
   );
 }
 
+function AnnouncementBar({ announcements }) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  useEffect(() => {
+    if (announcements.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentIdx(prev => (prev + 1) % announcements.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [announcements.length]);
+
+  if (!announcements.length) return null;
+
+  return (
+    <div className="bg-gold text-royal-800 py-2 px-4 relative overflow-hidden z-[60]">
+      <div className="max-w-7xl mx-auto flex items-center justify-center gap-3">
+        <Bell className="w-4 h-4 flex-shrink-0 animate-bounce" />
+        <div className="overflow-hidden relative h-6 flex-1 max-w-3xl">
+          {announcements.map((ann, idx) => (
+            <p key={ann.id} className={`text-sm font-medium text-center absolute inset-0 transition-all duration-500 flex items-center justify-center ${
+              idx === currentIdx ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
+            }`}>
+              {ann.text}
+            </p>
+          ))}
+        </div>
+        <div className="flex gap-1 flex-shrink-0">
+          {announcements.map((_, idx) => (
+            <button key={idx} onClick={() => setCurrentIdx(idx)}
+              className={`w-2 h-2 rounded-full transition-colors ${idx === currentIdx ? 'bg-royal-800' : 'bg-royal-800/30'}`} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BannerCarousel({ banners }) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentIdx(prev => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
+
+  if (!banners.length) return null;
+
+  return (
+    <div className="relative w-full overflow-hidden rounded-2xl shadow-2xl">
+      <div className="relative" style={{ paddingBottom: '40%' }}>
+        {banners.map((banner, idx) => (
+          <div key={banner.id} className={`absolute inset-0 transition-opacity duration-700 ${idx === currentIdx ? 'opacity-100' : 'opacity-0'}`}>
+            <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover" />
+            {(banner.title || banner.description) && (
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
+                <div>
+                  {banner.title && <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">{banner.title}</h3>}
+                  {banner.description && <p className="text-white/80 text-sm md:text-base">{banner.description}</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {banners.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          {banners.map((_, idx) => (
+            <button key={idx} onClick={() => setCurrentIdx(idx)}
+              className={`w-3 h-3 rounded-full transition-all ${idx === currentIdx ? 'bg-gold w-8' : 'bg-white/50'}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [staff, setStaff] = useState([]);
   const [courses, setCourses] = useState([]);
   const [results, setResults] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [banners, setBanners] = useState([]);
   const [contactForm, setContactForm] = useState({ name: '', mobile: '', email: '', course: '', message: '' });
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
@@ -89,6 +173,8 @@ export default function HomePage() {
     fetch('/api/courses').then(r => r.json()).then(d => setCourses(d.courses || [])).catch(() => {});
     fetch('/api/results').then(r => r.json()).then(d => setResults(d.results || [])).catch(() => {});
     fetch('/api/settings').then(r => r.json()).then(d => setSettings(d.settings || {})).catch(() => {});
+    fetch('/api/announcements?active=true').then(r => r.json()).then(d => setAnnouncements(d.announcements || [])).catch(() => {});
+    fetch('/api/banners?active=true').then(r => r.json()).then(d => setBanners(d.banners || [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -132,18 +218,22 @@ export default function HomePage() {
     instagram: 'https://www.instagram.com/resultwallah7',
   };
 
+  const founder = staff.find(s => s.is_founder);
+  const directors = staff.filter(s => !s.is_founder);
+
   return (
     <div className="min-h-screen">
+      {/* ANNOUNCEMENT BAR */}
+      <AnnouncementBar announcements={announcements} />
+
       {/* NAVIGATION */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-royal-800/95 backdrop-blur-md shadow-lg' : 'bg-transparent'}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-royal-800/95 backdrop-blur-md shadow-lg' : 'bg-royal-800/80 backdrop-blur-sm'}`} style={{ top: announcements.length > 0 ? '36px' : '0' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
-                <GraduationCap className="w-6 h-6 text-royal-800" />
-              </div>
+              <img src={LOGO_URL} alt="RW Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover" />
               <div>
-                <h1 className="text-lg md:text-xl font-bold text-white">RESULT WALLAH</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">RESULT WALLAH<sup className="text-[8px] text-gold-light ml-0.5">&trade;</sup></h1>
                 <p className="text-[10px] text-gold-light tracking-wider hidden sm:block">Your Career Is First For Us...</p>
               </div>
             </div>
@@ -154,8 +244,13 @@ export default function HomePage() {
                   {link.label}
                 </a>
               ))}
+              <a href="/login">
+                <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10 text-xs">
+                  Student Login
+                </Button>
+              </a>
               <a href="/admin">
-                <Button size="sm" className="bg-gold hover:bg-gold-dark text-royal-800 font-semibold">
+                <Button size="sm" className="bg-gold hover:bg-gold-dark text-royal-800 font-semibold text-xs">
                   Admin
                 </Button>
               </a>
@@ -167,7 +262,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="lg:hidden bg-royal-800/95 backdrop-blur-md border-t border-white/10">
             <div className="px-4 py-4 space-y-3">
@@ -176,16 +270,15 @@ export default function HomePage() {
                   {link.label}
                 </a>
               ))}
-              <a href="/admin" className="block">
-                <Button size="sm" className="bg-gold hover:bg-gold-dark text-royal-800 font-semibold w-full">Admin Panel</Button>
-              </a>
+              <a href="/login" className="block"><Button size="sm" variant="outline" className="border-white/30 text-white w-full text-xs">Student Login</Button></a>
+              <a href="/admin" className="block"><Button size="sm" className="bg-gold hover:bg-gold-dark text-royal-800 font-semibold w-full">Admin Panel</Button></a>
             </div>
           </div>
         )}
       </nav>
 
       {/* HERO SECTION */}
-      <section id="home" className="relative min-h-screen flex items-center gradient-royal overflow-hidden">
+      <section id="home" className="relative min-h-screen flex items-center gradient-royal overflow-hidden" style={{ paddingTop: announcements.length > 0 ? '36px' : '0' }}>
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-gold/30 blur-3xl" />
           <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-blue-400/20 blur-3xl" />
@@ -225,7 +318,6 @@ export default function HomePage() {
                 </a>
               </div>
 
-              {/* Badges */}
               <div className="flex flex-wrap gap-3 mt-8 justify-center lg:justify-start">
                 <Badge variant="outline" className="border-gold/40 text-gold-light bg-gold/5 text-xs py-1.5 px-3">
                   <Users className="w-3 h-3 mr-1" /> Limited 50 Students
@@ -271,25 +363,12 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
           <ChevronDown className="w-6 h-6 text-white/50" />
         </div>
       </section>
 
-      {/* COUNTER SECTION */}
-      <section className="gradient-royal-light py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <AnimatedCounter end={500} label="Students Selected" icon={Trophy} />
-            <AnimatedCounter end={10} label="Years Experience" icon={Clock} />
-            <AnimatedCounter end={50} label="Expert Faculty" icon={Users} />
-            <AnimatedCounter end={95} label="Success Rate" icon={Target} suffix="%" />
-          </div>
-        </div>
-      </section>
-
-      {/* ABOUT / DIRECTOR & FOUNDER */}
+      {/* FOUNDER & DIRECTORS SECTION */}
       <section id="about" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <SectionTitle
@@ -297,40 +376,62 @@ export default function HomePage() {
             subtitle="Meet the visionary leaders behind Result Wallah's success"
           />
 
-          <div className="grid md:grid-cols-2 gap-8 mb-16">
-            {staff.slice(0, 2).map((member, idx) => (
-              <Card key={member.id} className="overflow-hidden hover-lift border-0 shadow-xl">
-                <CardContent className="p-0">
-                  <div className="gradient-royal p-8 text-center">
-                    <div className="w-32 h-32 mx-auto rounded-full bg-white/10 border-4 border-gold/50 flex items-center justify-center mb-4 overflow-hidden">
-                      {member.photo_url ? (
-                        <img src={member.photo_url} alt={member.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-4xl font-bold text-gold-light">{member.name?.charAt(0)}</span>
-                      )}
+          {/* Founder */}
+          {founder && (
+            <div className="mb-16">
+              <div className="max-w-3xl mx-auto">
+                <Card className="overflow-hidden hover-lift border-0 shadow-2xl">
+                  <CardContent className="p-0">
+                    <div className="gradient-royal p-8 md:p-12">
+                      <div className="flex flex-col md:flex-row items-center gap-8">
+                        <div className="w-40 h-40 md:w-48 md:h-48 rounded-full border-4 border-gold/50 flex-shrink-0 overflow-hidden shadow-2xl">
+                          <img src={founder.photo_url} alt={founder.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="text-center md:text-left">
+                          <h3 className="text-3xl font-bold text-white mb-2">{founder.name}</h3>
+                          <p className="text-gold-light font-semibold text-lg mb-3">{founder.designation}</p>
+                          <Badge className="bg-gold/20 text-gold-light border-gold/30 text-sm px-4 py-1.5 mb-4">
+                            <Award className="w-4 h-4 mr-2" />
+                            Founder - Vice City Mayor of Karad Nagar Palika
+                          </Badge>
+                          <p className="text-white/70 leading-relaxed mt-3">{founder.description}</p>
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="text-2xl font-bold text-white mb-1">{member.name}</h3>
-                    <p className="text-gold-light font-medium mb-2">{member.designation}</p>
-                    {idx === 0 && (
-                      <Badge className="bg-gold/20 text-gold-light border-gold/30 text-xs">
-                        Founder - Vice City Mayor of Karad Nagar Palika
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <p className="text-gray-600 leading-relaxed">{member.description}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Directors */}
+          {directors.length > 0 && (
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              {directors.map((director) => (
+                <Card key={director.id} className="overflow-hidden hover-lift border-0 shadow-xl">
+                  <CardContent className="p-0">
+                    <div className="gradient-royal-light p-8 text-center">
+                      <div className="w-36 h-36 mx-auto rounded-full border-4 border-gold/40 overflow-hidden mb-4 shadow-xl">
+                        <img src={director.photo_url} alt={director.name} className="w-full h-full object-cover" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-white mb-1">{director.name}</h3>
+                      <p className="text-gold-light font-medium mb-2">{director.designation}</p>
+                    </div>
+                    <div className="p-6 bg-white">
+                      <p className="text-gray-600 leading-relaxed text-center">{director.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Additional Staff */}
-          {staff.length > 2 && (
+          {staff.length > 3 && (
             <div className="mt-12">
               <h3 className="text-2xl font-bold text-royal-800 text-center mb-8">Our Expert Faculty</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {staff.slice(2).map(member => (
+                {staff.slice(3).map(member => (
                   <Card key={member.id} className="hover-lift border-0 shadow-lg text-center">
                     <CardContent className="p-6">
                       <div className="w-20 h-20 mx-auto rounded-full bg-royal-100 border-2 border-royal-200 flex items-center justify-center mb-3 overflow-hidden">
@@ -351,116 +452,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* DIRECTOR MESSAGE */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <SectionTitle
-            title="Director's Message"
-            subtitle="A message from our leadership about our vision and commitment"
-          />
-          <div className="max-w-4xl mx-auto">
-            <Card className="border-0 shadow-xl overflow-hidden">
-              <div className="h-2 bg-gradient-to-r from-royal-800 via-gold to-royal-800" />
-              <CardContent className="p-8 md:p-12">
-                {settings?.directorMessage ? (
-                  <div className="prose prose-lg max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: settings.directorMessage }} />
-                ) : (
-                  <div className="space-y-6 text-gray-700">
-                    <h3 className="text-2xl font-bold text-royal-800">Welcome to Result Wallah</h3>
-                    <p className="leading-relaxed">At Result Wallah, we believe every student has the potential to achieve greatness. Our institute is committed to providing world-class coaching for competitive examinations including JEE, NEET, and MHT-CET.</p>
-                    <h4 className="text-xl font-semibold text-royal-700">Our Vision</h4>
-                    <p className="leading-relaxed">To be the premier educational institution in Maharashtra, nurturing future engineers and doctors who will serve the nation with excellence.</p>
-                    <h4 className="text-xl font-semibold text-royal-700">Our Programs</h4>
-                    <ul className="space-y-2 list-none">
-                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> JEE Preparation (Main & Advanced)</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> NEET / NEET Repeater Preparation</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> MHT-CET Preparation</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> IX & X Foundation Courses</li>
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* WHY CHOOSE US */}
-      <section className="py-20 gradient-royal">
-        <div className="max-w-7xl mx-auto px-4">
-          <SectionTitle
-            title="Why Choose Result Wallah?"
-            subtitle="Experience the difference that sets us apart from the rest"
-            light
-          />
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { icon: Users, title: 'Limited Batch of 50', desc: 'Personalized attention with strictly limited batch sizes ensuring every student gets individual focus.' },
-              { icon: Brain, title: 'AI Powered Classroom', desc: 'State-of-the-art AI connected classrooms for enhanced learning experience and smart assessments.' },
-              { icon: Clock, title: 'Study Till 8 PM', desc: 'Extended study hours with supervised self-study sessions and doubt clearing till 8 PM daily.' },
-              { icon: Shield, title: 'Biometric Attendance', desc: 'Advanced biometric attendance system ensuring discipline and regular tracking of student presence.' },
-              { icon: Target, title: 'Weekly Mock Tests', desc: 'Regular weekly mock tests simulating actual exam patterns with detailed performance analysis.' },
-              { icon: Zap, title: 'Result Wallah App', desc: 'Dedicated mobile app for accessing study materials, test results, and staying connected with the institute.' },
-            ].map((feature, idx) => (
-              <Card key={idx} className="glass-card border-white/10 hover-lift bg-white/5 backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <div className="w-14 h-14 rounded-2xl bg-gold/20 flex items-center justify-center mb-4">
-                    <feature.icon className="w-7 h-7 text-gold-light" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
-                  <p className="text-white/60 text-sm leading-relaxed">{feature.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* COURSES */}
-      <section id="courses" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
-          <SectionTitle
-            title="Our Courses"
-            subtitle="Comprehensive programs designed for competitive exam excellence"
-          />
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {courses.map(course => {
-              const IconComp = ICON_MAP[course.icon] || BookOpen;
-              return (
-                <Card key={course.id} className="hover-lift border-0 shadow-lg overflow-hidden group">
-                  <div className="h-2" style={{ backgroundColor: course.color }} />
-                  <CardContent className="p-6">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: course.color + '20' }}>
-                      <IconComp className="w-7 h-7" style={{ color: course.color }} />
-                    </div>
-                    <h3 className="text-xl font-bold text-royal-800 mb-3">{course.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4 leading-relaxed">{course.description}</p>
-
-                    <div className="space-y-2 mb-6">
-                      {(course.features || []).slice(0, 4).map((f, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          {f}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-3">
-                      <a href="#contact" className="flex-1">
-                        <Button className="w-full text-white text-sm font-semibold" style={{ backgroundColor: course.color }}>
-                          Enroll Now
-                        </Button>
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* TOP PERFORMERS */}
+      {/* TOP PERFORMERS - Right after Leadership */}
       <section id="results" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <SectionTitle
@@ -474,22 +466,22 @@ export default function HomePage() {
                 <Card key={result.id} className="hover-lift border-0 shadow-lg text-center overflow-hidden">
                   <div className="h-1 bg-gradient-to-r from-gold to-gold-light" />
                   <CardContent className="p-5">
-                    <div className="w-20 h-20 mx-auto rounded-full bg-royal-100 border-3 border-gold flex items-center justify-center mb-3 overflow-hidden">
+                    <div className="w-24 h-24 mx-auto rounded-full bg-royal-100 border-3 border-gold flex items-center justify-center mb-3 overflow-hidden shadow-lg">
                       {result.photo_url ? (
                         <img src={result.photo_url} alt={result.student_name} className="w-full h-full object-cover" />
                       ) : (
-                        <Trophy className="w-8 h-8 text-gold" />
+                        <Trophy className="w-10 h-10 text-gold" />
                       )}
                     </div>
-                    <h4 className="font-bold text-royal-800 text-sm">{result.student_name}</h4>
+                    <h4 className="font-bold text-royal-800">{result.student_name}</h4>
                     <Badge className="mt-2 text-xs" style={{ backgroundColor: result.exam === 'JEE' ? '#3B82F6' : result.exam === 'NEET' ? '#10B981' : '#8B5CF6', color: 'white' }}>
                       {result.exam}
                     </Badge>
                     {result.percentile && (
-                      <p className="text-gold-dark font-bold text-lg mt-2">{result.percentile}%ile</p>
+                      <p className="text-gold-dark font-bold text-xl mt-2">{result.percentile}%ile</p>
                     )}
                     {result.marks && (
-                      <p className="text-gray-500 text-xs">{result.marks} marks</p>
+                      <p className="text-gray-500 text-sm">{result.marks} marks</p>
                     )}
                     {result.year && (
                       <p className="text-gray-400 text-xs mt-1">Batch {result.year}</p>
@@ -508,15 +500,127 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* BANNER SECTION */}
+      {banners.length > 0 && (
+        <section className="py-12 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
+            <BannerCarousel banners={banners} />
+          </div>
+        </section>
+      )}
+
+      {/* COUNTER SECTION */}
+      <section className="gradient-royal-light py-16">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <AnimatedCounter end={500} label="Students Selected" icon={Trophy} />
+            <AnimatedCounter end={10} label="Years Experience" icon={Clock} />
+            <AnimatedCounter end={50} label="Expert Faculty" icon={Users} />
+            <AnimatedCounter end={95} label="Success Rate" icon={Target} suffix="%" />
+          </div>
+        </div>
+      </section>
+
+      {/* DIRECTOR MESSAGE */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <SectionTitle
+            title="Director's Message"
+            subtitle="A message from our leadership about our vision and commitment"
+          />
+          <div className="max-w-4xl mx-auto">
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-royal-800 via-gold to-royal-800" />
+              <CardContent className="p-8 md:p-12">
+                {settings?.directorMessage ? (
+                  <div className="prose prose-lg max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: settings.directorMessage }} />
+                ) : (
+                  <div className="space-y-6 text-gray-700">
+                    <h3 className="text-2xl font-bold text-royal-800">Welcome to Result Wallah</h3>
+                    <p className="leading-relaxed">At Result Wallah, we believe every student has the potential to achieve greatness.</p>
+                    <h4 className="text-xl font-semibold text-royal-700">Our Programs</h4>
+                    <ul className="space-y-2 list-none">
+                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> JEE Preparation (Main & Advanced)</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> NEET / NEET Repeater Preparation</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> MHT-CET Preparation</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> IX & X Foundation Courses</li>
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* WHY CHOOSE US */}
+      <section className="py-20 gradient-royal">
+        <div className="max-w-7xl mx-auto px-4">
+          <SectionTitle title="Why Choose Result Wallah?" subtitle="Experience the difference that sets us apart" light />
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: Users, title: 'Limited Batch of 50', desc: 'Personalized attention with strictly limited batch sizes ensuring every student gets individual focus.' },
+              { icon: Brain, title: 'AI Powered Classroom', desc: 'State-of-the-art AI connected classrooms for enhanced learning experience and smart assessments.' },
+              { icon: Clock, title: 'Study Till 8 PM', desc: 'Extended study hours with supervised self-study sessions and doubt clearing till 8 PM daily.' },
+              { icon: Shield, title: 'Biometric Attendance', desc: 'Advanced biometric attendance system ensuring discipline and regular tracking of student presence.' },
+              { icon: Target, title: 'Weekly Mock Tests', desc: 'Regular weekly mock tests simulating actual exam patterns with detailed performance analysis.' },
+              { icon: Zap, title: 'Result Wallah App', desc: 'Dedicated mobile app for accessing study materials, test results, and staying connected.' },
+            ].map((feature, idx) => (
+              <Card key={idx} className="glass-card border-white/10 hover-lift bg-white/5 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="w-14 h-14 rounded-2xl bg-gold/20 flex items-center justify-center mb-4">
+                    <feature.icon className="w-7 h-7 text-gold-light" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
+                  <p className="text-white/60 text-sm leading-relaxed">{feature.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* COURSES */}
+      <section id="courses" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <SectionTitle title="Our Courses" subtitle="Comprehensive programs designed for competitive exam excellence" />
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {courses.map(course => {
+              const IconComp = ICON_MAP[course.icon] || BookOpen;
+              return (
+                <Card key={course.id} className="hover-lift border-0 shadow-lg overflow-hidden group">
+                  <div className="h-2" style={{ backgroundColor: course.color }} />
+                  <CardContent className="p-6">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: course.color + '20' }}>
+                      <IconComp className="w-7 h-7" style={{ color: course.color }} />
+                    </div>
+                    <h3 className="text-xl font-bold text-royal-800 mb-3">{course.name}</h3>
+                    <p className="text-gray-600 text-sm mb-4 leading-relaxed">{course.description}</p>
+                    <div className="space-y-2 mb-6">
+                      {(course.features || []).slice(0, 4).map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          {f}
+                        </div>
+                      ))}
+                    </div>
+                    <a href="#contact" className="block">
+                      <Button className="w-full text-white text-sm font-semibold" style={{ backgroundColor: course.color }}>
+                        Enroll Now
+                      </Button>
+                    </a>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* NOTES DOWNLOAD */}
       <section id="notes" className="py-20 gradient-royal">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <SectionTitle
-            title="Study Notes & Materials"
-            subtitle="Access comprehensive study materials curated by our expert faculty"
-            light
-          />
-
+          <SectionTitle title="Study Notes & Materials" subtitle="Access comprehensive study materials curated by our expert faculty" light />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
             {['Physics', 'Chemistry', 'Mathematics', 'JEE', 'NEET'].map(subject => (
               <Card key={subject} className="glass-card border-white/10 hover-lift cursor-pointer bg-white/5">
@@ -533,7 +637,6 @@ export default function HomePage() {
               </Card>
             ))}
           </div>
-
           <div className="glass-card border-white/10 rounded-2xl p-8 max-w-lg mx-auto">
             <Download className="w-12 h-12 text-gold-light mx-auto mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">Login Required</h3>
@@ -552,22 +655,19 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4">
           <SectionTitle title="Connect With Us" subtitle="Follow us on social media for updates and tips" />
           <div className="flex justify-center gap-6">
-            <a href={contactInfo.facebook} target="_blank" rel="noopener noreferrer"
-              className="group flex flex-col items-center gap-3 p-6 rounded-2xl hover:bg-blue-50 transition-colors">
+            <a href={contactInfo.facebook} target="_blank" rel="noopener noreferrer" className="group flex flex-col items-center gap-3 p-6 rounded-2xl hover:bg-blue-50 transition-colors">
               <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Facebook className="w-8 h-8 text-white" />
               </div>
               <span className="font-medium text-gray-700">Facebook</span>
             </a>
-            <a href={contactInfo.instagram} target="_blank" rel="noopener noreferrer"
-              className="group flex flex-col items-center gap-3 p-6 rounded-2xl hover:bg-pink-50 transition-colors">
+            <a href={contactInfo.instagram} target="_blank" rel="noopener noreferrer" className="group flex flex-col items-center gap-3 p-6 rounded-2xl hover:bg-pink-50 transition-colors">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Instagram className="w-8 h-8 text-white" />
               </div>
               <span className="font-medium text-gray-700">Instagram</span>
             </a>
-            <a href={`https://wa.me/91${contactInfo.whatsapp1?.replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer"
-              className="group flex flex-col items-center gap-3 p-6 rounded-2xl hover:bg-green-50 transition-colors">
+            <a href={`https://wa.me/91${contactInfo.whatsapp1?.replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer" className="group flex flex-col items-center gap-3 p-6 rounded-2xl hover:bg-green-50 transition-colors">
               <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <MessageCircle className="w-8 h-8 text-white" />
               </div>
@@ -580,12 +680,8 @@ export default function HomePage() {
       {/* CONTACT */}
       <section id="contact" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <SectionTitle
-            title="Get In Touch"
-            subtitle="Have questions? We'd love to hear from you. Send us a message!"
-          />
+          <SectionTitle title="Get In Touch" subtitle="Have questions? We'd love to hear from you!" />
           <div className="grid lg:grid-cols-2 gap-12">
-            {/* Contact Form */}
             <Card className="border-0 shadow-xl">
               <CardContent className="p-8">
                 {contactSubmitted ? (
@@ -594,7 +690,7 @@ export default function HomePage() {
                       <CheckCircle className="w-10 h-10 text-green-500" />
                     </div>
                     <h3 className="text-2xl font-bold text-royal-800 mb-2">Thank You!</h3>
-                    <p className="text-gray-600">We have received your message. Our team will contact you shortly.</p>
+                    <p className="text-gray-600">Our team will contact you shortly.</p>
                   </div>
                 ) : (
                   <form onSubmit={handleContactSubmit} className="space-y-5">
@@ -604,7 +700,7 @@ export default function HomePage() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">Mobile Number *</label>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Mobile *</label>
                         <Input placeholder="Your mobile number" value={contactForm.mobile} onChange={e => setContactForm(p => ({ ...p, mobile: e.target.value }))} required />
                       </div>
                       <div>
@@ -631,8 +727,7 @@ export default function HomePage() {
               </CardContent>
             </Card>
 
-            {/* Contact Info */}
-            <div className="space-y-8">
+            <div className="space-y-6">
               <Card className="border-0 shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
@@ -672,14 +767,6 @@ export default function HomePage() {
                   </div>
                 </CardContent>
               </Card>
-
-              <Card className="border-0 shadow-lg overflow-hidden">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3820.5!2d74.18!3d17.29!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2sKarad%2C+Maharashtra!5e0!3m2!1sen!2sin!4v1234567890"
-                  width="100%" height="200" style={{ border: 0 }} allowFullScreen="" loading="lazy"
-                  className="rounded-t-lg" title="Result Wallah Location"
-                />
-              </Card>
             </div>
           </div>
         </div>
@@ -691,17 +778,14 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-8 mb-12">
             <div className="md:col-span-2">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
-                  <GraduationCap className="w-6 h-6 text-royal-800" />
-                </div>
+                <img src={LOGO_URL} alt="RW Logo" className="w-10 h-10 rounded-full object-cover" />
                 <div>
-                  <h3 className="text-xl font-bold text-white">RESULT WALLAH</h3>
+                  <h3 className="text-xl font-bold text-white">RESULT WALLAH<sup className="text-[8px] text-gold-light ml-0.5">&trade;</sup></h3>
                   <p className="text-gold-light text-xs">Your Career Is First For Us...</p>
                 </div>
               </div>
               <p className="text-white/60 text-sm mb-4 max-w-md">
                 Result Wallah is the premier coaching institute in Karad for JEE, NEET, and MHT-CET preparation.
-                We transform aspirations into achievements with expert faculty and personalized attention.
               </p>
               <div className="flex gap-3">
                 <a href={contactInfo.facebook} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
@@ -715,43 +799,27 @@ export default function HomePage() {
                 </a>
               </div>
             </div>
-
             <div>
               <h4 className="text-white font-bold mb-4">Quick Links</h4>
               <ul className="space-y-2">
                 {navLinks.map(link => (
-                  <li key={link.href}>
-                    <a href={link.href} className="text-white/60 hover:text-gold-light text-sm transition-colors flex items-center gap-1">
-                      <ChevronRight className="w-3 h-3" /> {link.label}
-                    </a>
-                  </li>
+                  <li key={link.href}><a href={link.href} className="text-white/60 hover:text-gold-light text-sm transition-colors flex items-center gap-1"><ChevronRight className="w-3 h-3" /> {link.label}</a></li>
                 ))}
               </ul>
             </div>
-
             <div>
               <h4 className="text-white font-bold mb-4">Courses</h4>
               <ul className="space-y-2">
                 {courses.slice(0, 5).map(c => (
-                  <li key={c.id}>
-                    <a href="#courses" className="text-white/60 hover:text-gold-light text-sm transition-colors flex items-center gap-1">
-                      <ChevronRight className="w-3 h-3" /> {c.name}
-                    </a>
-                  </li>
+                  <li key={c.id}><a href="#courses" className="text-white/60 hover:text-gold-light text-sm transition-colors flex items-center gap-1"><ChevronRight className="w-3 h-3" /> {c.name}</a></li>
                 ))}
               </ul>
             </div>
           </div>
-
           <Separator className="bg-white/10 mb-6" />
-
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-white/40 text-sm">
-              &copy; {new Date().getFullYear()} Result Wallah. All rights reserved.
-            </p>
-            <p className="text-white/40 text-sm">
-              Designed with ❤️ for Education Excellence
-            </p>
+            <p className="text-white/40 text-sm">&copy; {new Date().getFullYear()} Result Wallah&trade;. All rights reserved.</p>
+            <p className="text-white/40 text-sm">Designed with care for Education Excellence</p>
           </div>
         </div>
       </footer>

@@ -72,16 +72,17 @@ async function seedDatabase(db) {
     });
   }
 
-  // Seed staff
+  // Seed staff with actual photos
   const staffCount = await staffCol.countDocuments();
   if (staffCount === 0) {
     await staffCol.insertMany([
       {
         id: uuidv4(),
         name: 'Swami Sir',
-        designation: 'Founder & Director',
-        description: 'Founder - Vice City Mayor of Karad Nagar Palika. Visionary leader dedicated to transforming education in Karad region.',
-        photo_url: '',
+        designation: 'Founder & Chairman',
+        description: 'Visionary leader dedicated to transforming education in Karad region. Under his leadership, Result Wallah has become the premier coaching institute for JEE, NEET & MHT-CET preparation.',
+        photo_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/blztr8z2_Founder.jpeg',
+        is_founder: true,
         order: 1,
         createdAt: new Date().toISOString(),
       },
@@ -89,9 +90,66 @@ async function seedDatabase(db) {
         id: uuidv4(),
         name: 'Dubey Sir',
         designation: 'Director - Academics',
-        description: 'Expert educator with years of experience in JEE and NEET coaching. Passionate about student success.',
-        photo_url: '',
+        description: 'Expert educator with years of experience in JEE and NEET coaching. Passionate about student success and academic excellence.',
+        photo_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/p44lk7my_director%201.jpeg',
+        is_founder: false,
         order: 2,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: uuidv4(),
+        name: 'Director Sir',
+        designation: 'Director - Operations',
+        description: 'Ensuring smooth operations and world-class infrastructure for the best learning environment.',
+        photo_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/r4hl9udh_director%202.jpg',
+        is_founder: false,
+        order: 3,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
+  // Seed announcements
+  const announcementsCol = db.collection('announcements');
+  const announcementCount = await announcementsCol.countDocuments();
+  if (announcementCount === 0) {
+    await announcementsCol.insertMany([
+      {
+        id: uuidv4(),
+        text: 'Admissions Open for 2025-26! Limited seats available. Enroll now for JEE/NEET/MHT-CET batches.',
+        active: true,
+        priority: 1,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: uuidv4(),
+        text: 'New NEET Repeater Batch starting from July 2025. Special discount for early registrations!',
+        active: true,
+        priority: 2,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: uuidv4(),
+        text: 'Weekly Mock Tests every Sunday. AI-Powered Connected Classroom now available!',
+        active: true,
+        priority: 3,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
+  // Seed banners
+  const bannersCol = db.collection('banners');
+  const bannerCount = await bannersCol.countDocuments();
+  if (bannerCount === 0) {
+    await bannersCol.insertMany([
+      {
+        id: uuidv4(),
+        title: 'Welcome to Result Wallah',
+        description: 'Transforming Aspirations into Achievements - Your Career Is First For Us',
+        image_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/mqflbryl_RW_SWAMI%20_FLEX.jpg.jpeg',
+        active: true,
+        order: 1,
         createdAt: new Date().toISOString(),
       },
     ]);
@@ -608,6 +666,112 @@ async function handleUsers(request, method) {
   }
 }
 
+// ============== ANNOUNCEMENTS ==============
+async function handleAnnouncements(request, method) {
+  const { db } = await connectToDatabase();
+  const col = db.collection('announcements');
+
+  if (method === 'GET') {
+    const { searchParams } = new URL(request.url);
+    const activeOnly = searchParams.get('active');
+    const query = activeOnly === 'true' ? { active: true } : {};
+    const announcements = await col.find(query).sort({ priority: 1 }).toArray();
+    return jsonResponse({ announcements });
+  }
+
+  if (method === 'POST') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+
+    const body = await request.json();
+    const newAnnouncement = {
+      id: uuidv4(),
+      text: body.text || '',
+      active: body.active !== undefined ? body.active : true,
+      priority: body.priority || 99,
+      createdAt: new Date().toISOString(),
+    };
+    await col.insertOne(newAnnouncement);
+    return jsonResponse({ announcement: newAnnouncement }, 201);
+  }
+
+  if (method === 'PUT') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+
+    const body = await request.json();
+    const { id, ...updates } = body;
+    updates.updatedAt = new Date().toISOString();
+    await col.updateOne({ id }, { $set: updates });
+    const updated = await col.findOne({ id });
+    return jsonResponse({ announcement: updated });
+  }
+
+  if (method === 'DELETE') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    await col.deleteOne({ id });
+    return jsonResponse({ message: 'Announcement deleted' });
+  }
+}
+
+// ============== BANNERS ==============
+async function handleBanners(request, method) {
+  const { db } = await connectToDatabase();
+  const col = db.collection('banners');
+
+  if (method === 'GET') {
+    const { searchParams } = new URL(request.url);
+    const activeOnly = searchParams.get('active');
+    const query = activeOnly === 'true' ? { active: true } : {};
+    const banners = await col.find(query).sort({ order: 1 }).toArray();
+    return jsonResponse({ banners });
+  }
+
+  if (method === 'POST') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+
+    const body = await request.json();
+    const newBanner = {
+      id: uuidv4(),
+      title: body.title || '',
+      description: body.description || '',
+      image_url: body.image_url || '',
+      active: body.active !== undefined ? body.active : true,
+      order: body.order || 99,
+      createdAt: new Date().toISOString(),
+    };
+    await col.insertOne(newBanner);
+    return jsonResponse({ banner: newBanner }, 201);
+  }
+
+  if (method === 'PUT') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+
+    const body = await request.json();
+    const { id, ...updates } = body;
+    updates.updatedAt = new Date().toISOString();
+    await col.updateOne({ id }, { $set: updates });
+    const updated = await col.findOne({ id });
+    return jsonResponse({ banner: updated });
+  }
+
+  if (method === 'DELETE') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    await col.deleteOne({ id });
+    return jsonResponse({ message: 'Banner deleted' });
+  }
+}
+
 // ============== MAIN ROUTER ==============
 async function handleRequest(request, { params }) {
   const resolvedParams = await params;
@@ -632,6 +796,8 @@ async function handleRequest(request, { params }) {
       case 'upload': return await handleUpload(request);
       case 'download': return await handleDownload(request);
       case 'users': return await handleUsers(request, method);
+      case 'announcements': return await handleAnnouncements(request, method);
+      case 'banners': return await handleBanners(request, method);
       case 'health': return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() });
       default: return jsonResponse({ error: 'Route not found', path: segments }, 404);
     }

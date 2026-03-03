@@ -334,14 +334,41 @@ frontend:
         agent: "main"
         comment: "Notes listing with subject filter and download"
 
+  - task: "Announcements CRUD API"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "GET /api/announcements, POST/PUT/DELETE with admin auth. Active filter with ?active=true"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All announcements CRUD operations working perfectly. GET returns 3 seeded announcements, GET with ?active=true filters correctly, POST creates new announcement with admin auth, PUT updates successfully, DELETE removes correctly. All operations tested and validated."
+
+  - task: "Banners CRUD API"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "GET /api/banners, POST/PUT/DELETE with admin auth. Active filter with ?active=true"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All banners CRUD operations working perfectly. GET returns 1 seeded banner, GET with ?active=true filters correctly, POST creates new banner with admin auth, PUT updates successfully, DELETE removes correctly. All operations tested and validated."
+
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 1
+  version: "1.1"
+  test_sequence: 2
   run_ui: false
-  last_tested_by: "testing_agent"
-  testing_completed: true
-  backend_test_results: "11/11 PASSED - 100% SUCCESS RATE"
 
 test_plan:
   current_focus:
@@ -359,3 +386,5 @@ agent_communication:
     message: "Phase 1 MVP complete. All backend APIs implemented with MongoDB. Admin credentials: admin@resultwallah.com / Result@2026. Database name from .env is 'your_database_name'. The app uses seed_lock collection to prevent duplicate seeding. Base URL: https://edu-result-portal.preview.emergentagent.com. All API routes prefixed with /api. OTP for student auth is returned in response for testing purposes."
   - agent: "testing"
     message: "🎉 BACKEND TESTING COMPLETED - 100% SUCCESS RATE! All 11 backend API tests passed successfully. Tested: health check, admin login, staff CRUD, courses, settings, stats, contact form, results API, notes API, student auth flow (register→send-otp→verify-otp), and download tracking. All APIs working perfectly with proper authentication, data persistence, and expected responses. Database seeding working correctly (2 staff, 5 courses). Admin auth and student OTP flow both functional. No critical issues found."
+  - agent: "testing"
+    message: "🚀 NEW APIs TESTING COMPLETED - 100% SUCCESS! Tested new announcements and banners APIs thoroughly. Results: ✅ Announcements CRUD (GET returns 3 seeded, active filter works, POST/PUT/DELETE with admin auth all pass) ✅ Banners CRUD (GET returns 1 seeded, active filter works, POST/PUT/DELETE with admin auth all pass) ✅ All existing APIs still working (health, admin login, staff, courses, contacts, student auth). Total 16/16 tests passed. All backend APIs fully functional."

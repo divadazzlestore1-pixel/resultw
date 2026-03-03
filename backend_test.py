@@ -1,466 +1,472 @@
 #!/usr/bin/env python3
+"""
+RESULT WALLAH Educational Institute Backend API Testing
+Testing the new announcements and banners APIs plus existing functionality.
+"""
 
 import requests
 import json
 import sys
-import time
-from datetime import datetime
+from typing import Dict, Any, Optional
 
-# Configuration
+# Base URL from environment
 BASE_URL = "https://edu-result-portal.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api"
 
-# Admin credentials
-ADMIN_EMAIL = "admin@resultwallah.com"
-ADMIN_PASSWORD = "Result@2026"
+class BackendTester:
+    def __init__(self):
+        self.admin_token = None
+        self.student_token = None
+        self.test_announcement_id = None
+        self.test_banner_id = None
+        self.results = []
 
-# Global variables for tokens
-admin_token = None
-student_token = None
+    def log_result(self, test_name: str, success: bool, details: str = ""):
+        """Log test result"""
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{status}: {test_name}")
+        if details:
+            print(f"   Details: {details}")
+        self.results.append({"test": test_name, "success": success, "details": details})
+        return success
 
-def log_test(test_name, result, details=""):
-    """Log test results with consistent formatting"""
-    status = "✅ PASS" if result else "❌ FAIL"
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"[{timestamp}] {status} - {test_name}")
-    if details:
-        print(f"    Details: {details}")
-    if not result:
-        print(f"    ❗ CRITICAL FAILURE")
-    print()
+    def make_request(self, method: str, endpoint: str, data: Dict[Any, Any] = None, 
+                    headers: Dict[str, str] = None, params: Dict[str, str] = None) -> Optional[Dict[Any, Any]]:
+        """Make HTTP request with proper error handling"""
+        try:
+            url = f"{API_BASE}{endpoint}"
+            default_headers = {"Content-Type": "application/json"}
+            if headers:
+                default_headers.update(headers)
+            
+            kwargs = {"headers": default_headers, "timeout": 30}
+            if data:
+                kwargs["json"] = data
+            if params:
+                kwargs["params"] = params
+            
+            response = requests.request(method, url, **kwargs)
+            
+            if response.status_code == 204:
+                return {"status": "success", "message": "No content"}
+            
+            try:
+                return response.json()
+            except:
+                return {"status_code": response.status_code, "text": response.text}
+        except Exception as e:
+            print(f"Request failed: {e}")
+            return None
 
-def make_request(method, endpoint, data=None, headers=None, auth_token=None):
-    """Make HTTP request with proper error handling"""
-    url = f"{API_BASE}{endpoint}"
-    
-    # Set default headers
-    req_headers = {"Content-Type": "application/json"}
-    if headers:
-        req_headers.update(headers)
-    
-    # Add authorization if token provided
-    if auth_token:
-        req_headers["Authorization"] = f"Bearer {auth_token}"
-    
-    try:
-        if method.upper() == "GET":
-            response = requests.get(url, headers=req_headers, timeout=30)
-        elif method.upper() == "POST":
-            response = requests.post(url, json=data, headers=req_headers, timeout=30)
-        elif method.upper() == "PUT":
-            response = requests.put(url, json=data, headers=req_headers, timeout=30)
-        elif method.upper() == "DELETE":
-            response = requests.delete(url, headers=req_headers, timeout=30)
-        else:
-            raise ValueError(f"Unsupported HTTP method: {method}")
+    def get_auth_header(self, token: str) -> Dict[str, str]:
+        """Get authorization header"""
+        return {"Authorization": f"Bearer {token}"}
+
+    def test_health_check(self) -> bool:
+        """Test 1: GET /api/health"""
+        print("\n=== Testing Health Check ===")
+        response = self.make_request("GET", "/health")
         
-        return response
-    except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")
-        return None
+        if response and response.get("status") == "ok":
+            return self.log_result("Health Check", True, "API server is healthy")
+        return self.log_result("Health Check", False, f"Unexpected response: {response}")
 
-def test_health_endpoint():
-    """Test 1: Health check endpoint"""
-    response = make_request("GET", "/health")
-    
-    if response is None:
-        log_test("Health Check", False, "Request failed")
-        return False
-    
-    if response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "ok":
-            log_test("Health Check", True, f"Status: {data.get('status')}")
-            return True
-        else:
-            log_test("Health Check", False, f"Unexpected response: {data}")
-            return False
-    else:
-        log_test("Health Check", False, f"Status code: {response.status_code}")
-        return False
-
-def test_admin_login():
-    """Test 2: Admin login"""
-    global admin_token
-    
-    login_data = {
-        "email": ADMIN_EMAIL,
-        "password": ADMIN_PASSWORD
-    }
-    
-    response = make_request("POST", "/auth/admin-login", data=login_data)
-    
-    if response is None:
-        log_test("Admin Login", False, "Request failed")
-        return False
-    
-    if response.status_code == 200:
-        data = response.json()
-        if "token" in data and "user" in data:
-            admin_token = data["token"]
-            user = data["user"]
-            log_test("Admin Login", True, f"User: {user.get('name')} ({user.get('email')})")
-            return True
-        else:
-            log_test("Admin Login", False, f"Missing token or user in response: {data}")
-            return False
-    else:
-        log_test("Admin Login", False, f"Status code: {response.status_code}, Response: {response.text}")
-        return False
-
-def test_staff_endpoints():
-    """Test 3-6: Staff CRUD operations"""
-    # Test GET /api/staff
-    response = make_request("GET", "/staff")
-    
-    if response is None or response.status_code != 200:
-        log_test("GET Staff List", False, f"Failed to get staff list")
-        return False
-    
-    staff_data = response.json()
-    staff_list = staff_data.get("staff", [])
-    
-    if len(staff_list) == 2:
-        log_test("GET Staff List", True, f"Found {len(staff_list)} staff members as expected")
-    else:
-        log_test("GET Staff List", True, f"Found {len(staff_list)} staff members (expected 2)")
-    
-    # Test POST /api/staff (requires admin auth)
-    if not admin_token:
-        log_test("POST Staff (Add)", False, "No admin token available")
-        return False
-    
-    new_staff = {
-        "name": "Test Teacher",
-        "designation": "Mathematics Faculty",
-        "description": "Expert in advanced mathematics and problem solving",
-        "order": 3
-    }
-    
-    response = make_request("POST", "/staff", data=new_staff, auth_token=admin_token)
-    
-    if response and response.status_code == 201:
-        created_staff = response.json().get("staff")
-        staff_id = created_staff.get("id")
-        log_test("POST Staff (Add)", True, f"Created staff: {created_staff.get('name')}")
+    def test_admin_login(self) -> bool:
+        """Test 2: POST /api/auth/admin-login"""
+        print("\n=== Testing Admin Login ===")
         
-        # Test PUT /api/staff (update)
-        update_data = {
-            "id": staff_id,
-            "name": "Test Teacher Updated",
-            "designation": "Senior Mathematics Faculty"
+        login_data = {
+            "email": "admin@resultwallah.com",
+            "password": "Result@2026"
         }
         
-        response = make_request("PUT", "/staff", data=update_data, auth_token=admin_token)
+        response = self.make_request("POST", "/auth/admin-login", login_data)
         
-        if response and response.status_code == 200:
-            log_test("PUT Staff (Update)", True, "Staff updated successfully")
-        else:
-            log_test("PUT Staff (Update)", False, f"Update failed: {response.status_code if response else 'No response'}")
+        if response and response.get("token"):
+            self.admin_token = response["token"]
+            user = response.get("user", {})
+            return self.log_result("Admin Login", True, 
+                                 f"Logged in as {user.get('name')} ({user.get('email')})")
         
-        # Test DELETE /api/staff
-        response = make_request("DELETE", f"/staff?id={staff_id}", auth_token=admin_token)
+        return self.log_result("Admin Login", False, f"Login failed: {response}")
+
+    def test_staff_api(self) -> bool:
+        """Test 3: GET /api/staff"""
+        print("\n=== Testing Staff API ===")
         
-        if response and response.status_code == 200:
-            log_test("DELETE Staff", True, "Staff deleted successfully")
-            return True
-        else:
-            log_test("DELETE Staff", False, f"Delete failed: {response.status_code if response else 'No response'}")
-            return False
-    else:
-        log_test("POST Staff (Add)", False, f"Failed to add staff: {response.status_code if response else 'No response'}")
-        return False
-
-def test_courses_endpoint():
-    """Test 4: Courses API"""
-    response = make_request("GET", "/courses")
-    
-    if response is None:
-        log_test("GET Courses", False, "Request failed")
-        return False
-    
-    if response.status_code == 200:
-        data = response.json()
-        courses = data.get("courses", [])
-        if len(courses) == 5:
-            log_test("GET Courses", True, f"Found {len(courses)} courses as expected")
-            return True
-        else:
-            log_test("GET Courses", True, f"Found {len(courses)} courses (expected 5)")
-            return True
-    else:
-        log_test("GET Courses", False, f"Status code: {response.status_code}")
-        return False
-
-def test_settings_endpoint():
-    """Test 5: Settings API"""
-    response = make_request("GET", "/settings")
-    
-    if response is None:
-        log_test("GET Settings", False, "Request failed")
-        return False
-    
-    if response.status_code == 200:
-        data = response.json()
-        settings = data.get("settings", {})
-        if "directorMessage" in settings:
-            log_test("GET Settings", True, "Settings with directorMessage found")
-            return True
-        else:
-            log_test("GET Settings", False, "directorMessage not found in settings")
-            return False
-    else:
-        log_test("GET Settings", False, f"Status code: {response.status_code}")
-        return False
-
-def test_stats_endpoint():
-    """Test 6: Stats API"""
-    response = make_request("GET", "/stats")
-    
-    if response is None:
-        log_test("GET Stats", False, "Request failed")
-        return False
-    
-    if response.status_code == 200:
-        data = response.json()
-        stats = data.get("stats", {})
-        expected_keys = ["studentCount", "staffCount", "notesCount", "contactCount", "resultCount", "courseCount"]
+        response = self.make_request("GET", "/staff")
         
-        if all(key in stats for key in expected_keys):
-            log_test("GET Stats", True, f"All stat counts present: {stats}")
-            return True
-        else:
-            log_test("GET Stats", False, f"Missing stat keys. Got: {list(stats.keys())}")
-            return False
-    else:
-        log_test("GET Stats", False, f"Status code: {response.status_code}")
-        return False
-
-def test_contact_form():
-    """Test 7-8: Contact form submission and listing"""
-    # Test POST /api/contacts
-    contact_data = {
-        "name": "Rajesh Sharma",
-        "mobile": "9876543210",
-        "email": "rajesh.sharma@example.com",
-        "course": "IIT-JEE (Main & Advanced)",
-        "message": "I want to know about the JEE coaching program and fee structure."
-    }
-    
-    response = make_request("POST", "/contacts", data=contact_data)
-    
-    if response is None:
-        log_test("POST Contact Form", False, "Request failed")
-        return False
-    
-    if response.status_code == 201:
-        data = response.json()
-        log_test("POST Contact Form", True, f"Contact submitted: {data.get('message', 'Success')}")
+        if response and "staff" in response:
+            staff_list = response["staff"]
+            staff_count = len(staff_list)
+            
+            # Check if we have expected staff members (should be 3 from seeding)
+            if staff_count >= 3:
+                # Verify staff have photo URLs
+                staff_with_photos = [s for s in staff_list if s.get("photo_url")]
+                return self.log_result("Staff API", True, 
+                                     f"Found {staff_count} staff members, {len(staff_with_photos)} with photos")
+            else:
+                return self.log_result("Staff API", False, 
+                                     f"Expected 3+ staff members, got {staff_count}")
         
-        # Test GET /api/contacts (admin required)
-        if not admin_token:
-            log_test("GET Contacts (Admin)", False, "No admin token available")
-            return False
+        return self.log_result("Staff API", False, f"Failed to fetch staff: {response}")
+
+    def test_courses_api(self) -> bool:
+        """Test 4: GET /api/courses"""
+        print("\n=== Testing Courses API ===")
         
-        response = make_request("GET", "/contacts", auth_token=admin_token)
+        response = self.make_request("GET", "/courses")
         
-        if response and response.status_code == 200:
-            contacts_data = response.json()
-            contacts = contacts_data.get("contacts", [])
-            log_test("GET Contacts (Admin)", True, f"Retrieved {len(contacts)} contacts")
-            return True
-        else:
-            log_test("GET Contacts (Admin)", False, f"Failed to get contacts: {response.status_code if response else 'No response'}")
-            return False
-    else:
-        log_test("POST Contact Form", False, f"Status code: {response.status_code}, Response: {response.text}")
-        return False
+        if response and "courses" in response:
+            courses = response["courses"]
+            course_count = len(courses)
+            
+            if course_count == 5:
+                course_names = [c.get("name") for c in courses]
+                return self.log_result("Courses API", True, 
+                                     f"Found {course_count} courses: {', '.join(course_names[:3])}...")
+            else:
+                return self.log_result("Courses API", False, 
+                                     f"Expected 5 courses, got {course_count}")
+        
+        return self.log_result("Courses API", False, f"Failed to fetch courses: {response}")
 
-def test_results_api():
-    """Test 9: Results/Top Performers API"""
-    if not admin_token:
-        log_test("POST Results (Add Top Performer)", False, "No admin token available")
-        return False
-    
-    result_data = {
-        "student_name": "Priya Patel",
-        "exam": "NEET 2024",
-        "marks": "680/720",
-        "percentile": "99.8",
-        "year": "2024"
-    }
-    
-    response = make_request("POST", "/results", data=result_data, auth_token=admin_token)
-    
-    if response and response.status_code == 201:
-        log_test("POST Results (Add Top Performer)", True, f"Added result for {result_data['student_name']}")
-        return True
-    else:
-        log_test("POST Results (Add Top Performer)", False, f"Failed: {response.status_code if response else 'No response'}")
-        return False
+    def test_announcements_get(self) -> bool:
+        """Test 5: GET /api/announcements"""
+        print("\n=== Testing Announcements GET ===")
+        
+        response = self.make_request("GET", "/announcements")
+        
+        if response and "announcements" in response:
+            announcements = response["announcements"]
+            count = len(announcements)
+            
+            if count >= 3:
+                return self.log_result("Announcements GET", True, 
+                                     f"Found {count} announcements")
+            else:
+                return self.log_result("Announcements GET", False, 
+                                     f"Expected 3+ announcements, got {count}")
+        
+        return self.log_result("Announcements GET", False, f"Failed to fetch: {response}")
 
-def test_notes_api():
-    """Test 10: Notes API"""
-    if not admin_token:
-        log_test("POST Notes (Add Note)", False, "No admin token available")
-        return False
-    
-    note_data = {
-        "title": "Physics Formula Sheet - Mechanics",
-        "subject": "Physics",
-        "file_url": "/uploads/notes/physics_mechanics_formulas.pdf"
-    }
-    
-    response = make_request("POST", "/notes", data=note_data, auth_token=admin_token)
-    
-    if response and response.status_code == 201:
-        log_test("POST Notes (Add Note)", True, f"Added note: {note_data['title']}")
-        return True
-    else:
-        log_test("POST Notes (Add Note)", False, f"Failed: {response.status_code if response else 'No response'}")
-        return False
+    def test_announcements_get_active(self) -> bool:
+        """Test 6: GET /api/announcements?active=true"""
+        print("\n=== Testing Announcements GET Active Filter ===")
+        
+        response = self.make_request("GET", "/announcements", params={"active": "true"})
+        
+        if response and "announcements" in response:
+            announcements = response["announcements"]
+            active_count = len(announcements)
+            
+            # All seeded announcements should be active
+            all_active = all(a.get("active", False) for a in announcements)
+            
+            if all_active:
+                return self.log_result("Announcements Active Filter", True, 
+                                     f"Found {active_count} active announcements")
+            else:
+                return self.log_result("Announcements Active Filter", False, 
+                                     "Some announcements are not active")
+        
+        return self.log_result("Announcements Active Filter", False, f"Failed: {response}")
 
-def test_student_auth_flow():
-    """Test 11: Student authentication flow"""
-    global student_token
-    
-    # Step 1: Register
-    student_data = {
-        "name": "Ankit Kumar",
-        "email": "ankit.kumar@student.com",
-        "mobile": "8765432109",
-        "role": "student"
-    }
-    
-    response = make_request("POST", "/auth/register", data=student_data)
-    
-    if response is None or response.status_code != 200:
-        log_test("Student Registration", False, f"Registration failed: {response.status_code if response else 'No response'}")
-        return False
-    
-    reg_data = response.json()
-    log_test("Student Registration", True, f"Registration successful: {reg_data.get('message', 'Success')}")
-    
-    # Step 2: Send OTP
-    otp_request = {"email": student_data["email"]}
-    response = make_request("POST", "/auth/send-otp", data=otp_request)
-    
-    if response is None or response.status_code != 200:
-        log_test("Student Send OTP", False, f"Send OTP failed: {response.status_code if response else 'No response'}")
-        return False
-    
-    otp_data = response.json()
-    log_test("Student Send OTP", True, f"OTP sent: {otp_data.get('message', 'Success')}")
-    
-    # Extract OTP from response (for testing purposes)
-    otp_hint = otp_data.get("otp_hint", "")
-    otp = otp_hint.split(": ")[-1] if ": " in otp_hint else ""
-    
-    if not otp:
-        log_test("Student Extract OTP", False, "Could not extract OTP from response")
-        return False
-    
-    # Step 3: Verify OTP
-    verify_data = {
-        "email": student_data["email"],
-        "otp": otp
-    }
-    
-    response = make_request("POST", "/auth/verify-otp", data=verify_data)
-    
-    if response and response.status_code == 200:
-        verify_response = response.json()
-        if "token" in verify_response:
-            student_token = verify_response["token"]
+    def test_announcements_post(self) -> bool:
+        """Test 7: POST /api/announcements (admin auth required)"""
+        print("\n=== Testing Announcements POST ===")
+        
+        if not self.admin_token:
+            return self.log_result("Announcements POST", False, "No admin token available")
+        
+        new_announcement = {
+            "text": "Test announcement",
+            "active": True,
+            "priority": 4
+        }
+        
+        headers = self.get_auth_header(self.admin_token)
+        response = self.make_request("POST", "/announcements", new_announcement, headers)
+        
+        if response and "announcement" in response:
+            announcement = response["announcement"]
+            self.test_announcement_id = announcement.get("id")
+            
+            return self.log_result("Announcements POST", True, 
+                                 f"Created announcement: {announcement.get('text')}")
+        
+        return self.log_result("Announcements POST", False, f"Failed to create: {response}")
+
+    def test_announcements_put(self) -> bool:
+        """Test 8: PUT /api/announcements (admin auth required)"""
+        print("\n=== Testing Announcements PUT ===")
+        
+        if not self.admin_token or not self.test_announcement_id:
+            return self.log_result("Announcements PUT", False, "No admin token or test announcement ID")
+        
+        update_data = {
+            "id": self.test_announcement_id,
+            "text": "Updated test announcement",
+            "active": False
+        }
+        
+        headers = self.get_auth_header(self.admin_token)
+        response = self.make_request("PUT", "/announcements", update_data, headers)
+        
+        if response and "announcement" in response:
+            announcement = response["announcement"]
+            
+            return self.log_result("Announcements PUT", True, 
+                                 f"Updated announcement: {announcement.get('text')}")
+        
+        return self.log_result("Announcements PUT", False, f"Failed to update: {response}")
+
+    def test_announcements_delete(self) -> bool:
+        """Test 9: DELETE /api/announcements (admin auth required)"""
+        print("\n=== Testing Announcements DELETE ===")
+        
+        if not self.admin_token or not self.test_announcement_id:
+            return self.log_result("Announcements DELETE", False, "No admin token or test announcement ID")
+        
+        headers = self.get_auth_header(self.admin_token)
+        params = {"id": self.test_announcement_id}
+        response = self.make_request("DELETE", "/announcements", headers=headers, params=params)
+        
+        if response and response.get("message") == "Announcement deleted":
+            return self.log_result("Announcements DELETE", True, "Successfully deleted test announcement")
+        
+        return self.log_result("Announcements DELETE", False, f"Failed to delete: {response}")
+
+    def test_banners_get(self) -> bool:
+        """Test 10: GET /api/banners"""
+        print("\n=== Testing Banners GET ===")
+        
+        response = self.make_request("GET", "/banners")
+        
+        if response and "banners" in response:
+            banners = response["banners"]
+            count = len(banners)
+            
+            if count >= 1:
+                return self.log_result("Banners GET", True, 
+                                     f"Found {count} banners")
+            else:
+                return self.log_result("Banners GET", False, 
+                                     f"Expected 1+ banners, got {count}")
+        
+        return self.log_result("Banners GET", False, f"Failed to fetch: {response}")
+
+    def test_banners_get_active(self) -> bool:
+        """Test 11: GET /api/banners?active=true"""
+        print("\n=== Testing Banners GET Active Filter ===")
+        
+        response = self.make_request("GET", "/banners", params={"active": "true"})
+        
+        if response and "banners" in response:
+            banners = response["banners"]
+            active_count = len(banners)
+            
+            # Check if active banners only
+            all_active = all(b.get("active", False) for b in banners)
+            
+            if all_active:
+                return self.log_result("Banners Active Filter", True, 
+                                     f"Found {active_count} active banners")
+            else:
+                return self.log_result("Banners Active Filter", False, 
+                                     "Some banners are not active")
+        
+        return self.log_result("Banners Active Filter", False, f"Failed: {response}")
+
+    def test_banners_post(self) -> bool:
+        """Test 12: POST /api/banners (admin auth required)"""
+        print("\n=== Testing Banners POST ===")
+        
+        if not self.admin_token:
+            return self.log_result("Banners POST", False, "No admin token available")
+        
+        new_banner = {
+            "title": "Test Banner",
+            "description": "Test desc",
+            "image_url": "/test.jpg",
+            "active": True,
+            "order": 2
+        }
+        
+        headers = self.get_auth_header(self.admin_token)
+        response = self.make_request("POST", "/banners", new_banner, headers)
+        
+        if response and "banner" in response:
+            banner = response["banner"]
+            self.test_banner_id = banner.get("id")
+            
+            return self.log_result("Banners POST", True, 
+                                 f"Created banner: {banner.get('title')}")
+        
+        return self.log_result("Banners POST", False, f"Failed to create: {response}")
+
+    def test_banners_put(self) -> bool:
+        """Test 13: PUT /api/banners (admin auth required)"""
+        print("\n=== Testing Banners PUT ===")
+        
+        if not self.admin_token or not self.test_banner_id:
+            return self.log_result("Banners PUT", False, "No admin token or test banner ID")
+        
+        update_data = {
+            "id": self.test_banner_id,
+            "title": "Updated Banner",
+            "active": False
+        }
+        
+        headers = self.get_auth_header(self.admin_token)
+        response = self.make_request("PUT", "/banners", update_data, headers)
+        
+        if response and "banner" in response:
+            banner = response["banner"]
+            
+            return self.log_result("Banners PUT", True, 
+                                 f"Updated banner: {banner.get('title')}")
+        
+        return self.log_result("Banners PUT", False, f"Failed to update: {response}")
+
+    def test_banners_delete(self) -> bool:
+        """Test 14: DELETE /api/banners (admin auth required)"""
+        print("\n=== Testing Banners DELETE ===")
+        
+        if not self.admin_token or not self.test_banner_id:
+            return self.log_result("Banners DELETE", False, "No admin token or test banner ID")
+        
+        headers = self.get_auth_header(self.admin_token)
+        params = {"id": self.test_banner_id}
+        response = self.make_request("DELETE", "/banners", headers=headers, params=params)
+        
+        if response and response.get("message") == "Banner deleted":
+            return self.log_result("Banners DELETE", True, "Successfully deleted test banner")
+        
+        return self.log_result("Banners DELETE", False, f"Failed to delete: {response}")
+
+    def test_contact_submission(self) -> bool:
+        """Test 15: POST /api/contacts"""
+        print("\n=== Testing Contact Form Submission ===")
+        
+        contact_data = {
+            "name": "Arjun Sharma",
+            "mobile": "9876543210",
+            "email": "arjun.sharma@student.com",
+            "course": "NEET",
+            "message": "Interested in NEET coaching for 2025-26"
+        }
+        
+        response = self.make_request("POST", "/contacts", contact_data)
+        
+        if response and response.get("message") == "Contact form submitted successfully":
+            return self.log_result("Contact Submission", True, 
+                                 f"Contact form submitted for {contact_data['name']}")
+        
+        return self.log_result("Contact Submission", False, f"Failed to submit: {response}")
+
+    def test_student_auth_flow(self) -> bool:
+        """Test 16: Student auth flow - register, send-otp, verify-otp"""
+        print("\n=== Testing Student Auth Flow ===")
+        
+        # Step 1: Register
+        register_data = {
+            "name": "Priya Patel",
+            "email": "priya.patel@student.com",
+            "mobile": "8765432109",
+            "role": "student"
+        }
+        
+        register_response = self.make_request("POST", "/auth/register", register_data)
+        
+        if not register_response or "OTP sent" not in register_response.get("message", ""):
+            return self.log_result("Student Auth Flow", False, f"Registration failed: {register_response}")
+        
+        # Extract OTP from response (for testing)
+        otp_hint = register_response.get("otp_hint", "")
+        if "OTP is:" not in otp_hint:
+            return self.log_result("Student Auth Flow", False, "No OTP provided in response")
+        
+        otp = otp_hint.split("OTP is: ")[1].strip()
+        
+        # Step 2: Send OTP (optional, but let's test it)
+        send_otp_data = {"email": register_data["email"]}
+        send_otp_response = self.make_request("POST", "/auth/send-otp", send_otp_data)
+        
+        if send_otp_response and "OTP is:" in send_otp_response.get("otp_hint", ""):
+            otp = send_otp_response.get("otp_hint", "").split("OTP is: ")[1].strip()
+        
+        # Step 3: Verify OTP
+        verify_data = {
+            "email": register_data["email"],
+            "otp": otp
+        }
+        
+        verify_response = self.make_request("POST", "/auth/verify-otp", verify_data)
+        
+        if verify_response and verify_response.get("token"):
+            self.student_token = verify_response["token"]
             user = verify_response.get("user", {})
-            log_test("Student OTP Verification", True, f"Login successful: {user.get('name')} ({user.get('email')})")
-            return True
+            return self.log_result("Student Auth Flow", True, 
+                                 f"Complete auth flow successful for {user.get('name')}")
+        
+        return self.log_result("Student Auth Flow", False, f"OTP verification failed: {verify_response}")
+
+    def run_all_tests(self):
+        """Run all backend tests"""
+        print("🚀 RESULT WALLAH Backend API Testing")
+        print(f"📍 Testing against: {BASE_URL}")
+        print("=" * 60)
+        
+        # Run all tests in sequence
+        tests = [
+            self.test_health_check,
+            self.test_admin_login,
+            self.test_staff_api,
+            self.test_courses_api,
+            self.test_announcements_get,
+            self.test_announcements_get_active,
+            self.test_announcements_post,
+            self.test_announcements_put,
+            self.test_announcements_delete,
+            self.test_banners_get,
+            self.test_banners_get_active,
+            self.test_banners_post,
+            self.test_banners_put,
+            self.test_banners_delete,
+            self.test_contact_submission,
+            self.test_student_auth_flow,
+        ]
+        
+        passed = 0
+        failed = 0
+        
+        for test in tests:
+            try:
+                if test():
+                    passed += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                print(f"❌ FAIL: {test.__name__} - Exception: {e}")
+                failed += 1
+        
+        # Print final summary
+        print("\n" + "=" * 60)
+        print(f"🎯 TEST SUMMARY")
+        print(f"✅ Passed: {passed}")
+        print(f"❌ Failed: {failed}")
+        print(f"📊 Success Rate: {(passed/(passed+failed)*100):.1f}%")
+        
+        if failed == 0:
+            print("🎉 ALL TESTS PASSED! Backend APIs are working perfectly.")
         else:
-            log_test("Student OTP Verification", False, "No token in verification response")
-            return False
-    else:
-        log_test("Student OTP Verification", False, f"Verification failed: {response.status_code if response else 'No response'}")
-        return False
-
-def test_download_tracking():
-    """Test 12: Download tracking"""
-    if not student_token:
-        log_test("Download Tracking", False, "No student token available")
-        return False
-    
-    # First, get notes to find a valid note ID
-    response = make_request("GET", "/notes")
-    
-    if response is None or response.status_code != 200:
-        log_test("Download Tracking", False, "Could not fetch notes list")
-        return False
-    
-    notes_data = response.json()
-    notes = notes_data.get("notes", [])
-    
-    if not notes:
-        log_test("Download Tracking", False, "No notes available for download test")
-        return False
-    
-    # Use the first note for testing
-    note_id = notes[0].get("id")
-    
-    response = make_request("GET", f"/download?id={note_id}", auth_token=student_token)
-    
-    if response and response.status_code == 200:
-        download_data = response.json()
-        log_test("Download Tracking", True, f"Download tracked: {download_data}")
-        return True
-    else:
-        log_test("Download Tracking", False, f"Download failed: {response.status_code if response else 'No response'}")
-        return False
-
-def run_all_tests():
-    """Run all backend API tests"""
-    print("=" * 80)
-    print("🚀 RESULT WALLAH BACKEND API TESTING")
-    print("=" * 80)
-    print(f"Base URL: {BASE_URL}")
-    print(f"Testing Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 80)
-    print()
-    
-    test_results = []
-    
-    # Core functionality tests
-    test_results.append(("Health Check", test_health_endpoint()))
-    test_results.append(("Admin Login", test_admin_login()))
-    test_results.append(("Staff Operations", test_staff_endpoints()))
-    test_results.append(("Courses API", test_courses_endpoint()))
-    test_results.append(("Settings API", test_settings_endpoint()))
-    test_results.append(("Stats API", test_stats_endpoint()))
-    test_results.append(("Contact Form", test_contact_form()))
-    test_results.append(("Results API", test_results_api()))
-    test_results.append(("Notes API", test_notes_api()))
-    test_results.append(("Student Auth Flow", test_student_auth_flow()))
-    test_results.append(("Download Tracking", test_download_tracking()))
-    
-    # Summary
-    print("=" * 80)
-    print("📊 TEST SUMMARY")
-    print("=" * 80)
-    
-    passed = sum(1 for _, result in test_results if result)
-    total = len(test_results)
-    
-    for test_name, result in test_results:
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{status} {test_name}")
-    
-    print()
-    print(f"Total Tests: {total}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {total - passed}")
-    print(f"Success Rate: {(passed/total)*100:.1f}%")
-    print("=" * 80)
-    
-    return passed == total
+            print(f"⚠️  {failed} tests failed. Check details above.")
+        
+        return failed == 0
 
 if __name__ == "__main__":
-    success = run_all_tests()
+    tester = BackendTester()
+    success = tester.run_all_tests()
     sys.exit(0 if success else 1)
