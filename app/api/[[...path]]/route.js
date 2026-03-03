@@ -259,6 +259,61 @@ async function seedDatabase(db) {
     });
   }
 
+  // Seed gallery
+  const galleryCol = db.collection('gallery');
+  const galleryCount = await galleryCol.countDocuments();
+  if (galleryCount === 0) {
+    await galleryCol.insertMany([
+      {
+        id: uuidv4(),
+        image_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/urqpm1iw_WhatsApp%20Image%202026-03-03%20at%202.15.06%20AM%20%281%29.jpeg',
+        caption: 'Our Star Performers - NEET & JEE Toppers 2025',
+        active: true,
+        order: 1,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: uuidv4(),
+        image_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/uv2c88eq_WhatsApp%20Image%202026-03-03%20at%202.15.05%20AM%20%281%29.jpeg',
+        caption: 'RW Scholarship Exam 2026 - AI Powered Connected Classroom',
+        active: true,
+        order: 2,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: uuidv4(),
+        image_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/xzikn0ub_WhatsApp%20Image%202026-03-03%20at%202.15.05%20AM.jpeg',
+        caption: 'NEET / JEE / CET - Admissions Open 2025-26',
+        active: true,
+        order: 3,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: uuidv4(),
+        image_url: 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/dufub4z2_WhatsApp%20Image%202026-03-03%20at%202.15.06%20AM%20%282%29.jpeg',
+        caption: 'AI Powered Connected Classrooms at Result Wallah',
+        active: true,
+        order: 4,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
+  // Seed top performers / results
+  const resultsCol = db.collection('results');
+  const resultsCount = await resultsCol.countDocuments();
+  if (resultsCount === 0) {
+    await resultsCol.insertMany([
+      { id: uuidv4(), student_name: 'Yash Waydande', exam: 'NEET', marks: '', percentile: '', year: '2025', college: 'ESIC Medical College, Patna', photo_url: '', createdAt: new Date().toISOString() },
+      { id: uuidv4(), student_name: 'Devansh Shah', exam: 'NEET', marks: '', percentile: '', year: '2025', college: 'GMC Baroda, Gujarat', photo_url: '', createdAt: new Date().toISOString() },
+      { id: uuidv4(), student_name: 'Punam Karande', exam: 'NEET', marks: '', percentile: '', year: '2025', college: 'GMC Sindhudurg, Maharashtra', photo_url: '', createdAt: new Date().toISOString() },
+      { id: uuidv4(), student_name: 'Kasturi Patil', exam: 'NEET', marks: '', percentile: '', year: '2025', college: 'TDCH Nerul, Maharashtra', photo_url: '', createdAt: new Date().toISOString() },
+      { id: uuidv4(), student_name: 'Atharva Pargaonkar', exam: 'JEE', marks: '', percentile: '', year: '2025', college: 'IIT Goa', photo_url: '', createdAt: new Date().toISOString() },
+      { id: uuidv4(), student_name: 'Pakshal Jain', exam: 'JEE', marks: '', percentile: '', year: '2025', college: 'VJTI Mumbai, Maharashtra', photo_url: '', createdAt: new Date().toISOString() },
+      { id: uuidv4(), student_name: 'Sumit Patil', exam: 'CET', marks: '', percentile: '', year: '2025', college: 'MIT Pune, Maharashtra', photo_url: '', createdAt: new Date().toISOString() },
+    ]);
+  }
+
   return { message: 'Database seeded successfully' };
 }
 
@@ -772,6 +827,56 @@ async function handleBanners(request, method) {
   }
 }
 
+// ============== GALLERY ==============
+async function handleGallery(request, method) {
+  const { db } = await connectToDatabase();
+  const col = db.collection('gallery');
+
+  if (method === 'GET') {
+    const { searchParams } = new URL(request.url);
+    const activeOnly = searchParams.get('active');
+    const query = activeOnly === 'true' ? { active: true } : {};
+    const gallery = await col.find(query).sort({ order: 1 }).toArray();
+    return jsonResponse({ gallery });
+  }
+
+  if (method === 'POST') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+    const body = await request.json();
+    const item = {
+      id: uuidv4(),
+      image_url: body.image_url || '',
+      caption: body.caption || '',
+      active: body.active !== undefined ? body.active : true,
+      order: body.order || 99,
+      createdAt: new Date().toISOString(),
+    };
+    await col.insertOne(item);
+    return jsonResponse({ gallery: item }, 201);
+  }
+
+  if (method === 'PUT') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+    const body = await request.json();
+    const { id, ...updates } = body;
+    updates.updatedAt = new Date().toISOString();
+    await col.updateOne({ id }, { $set: updates });
+    const updated = await col.findOne({ id });
+    return jsonResponse({ gallery: updated });
+  }
+
+  if (method === 'DELETE') {
+    const admin = verifyAdmin(request);
+    if (!admin) return jsonResponse({ error: 'Unauthorized' }, 401);
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    await col.deleteOne({ id });
+    return jsonResponse({ message: 'Gallery item deleted' });
+  }
+}
+
 // ============== MAIN ROUTER ==============
 async function handleRequest(request, { params }) {
   const resolvedParams = await params;
@@ -798,6 +903,7 @@ async function handleRequest(request, { params }) {
       case 'users': return await handleUsers(request, method);
       case 'announcements': return await handleAnnouncements(request, method);
       case 'banners': return await handleBanners(request, method);
+      case 'gallery': return await handleGallery(request, method);
       case 'health': return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() });
       default: return jsonResponse({ error: 'Route not found', path: segments }, 404);
     }

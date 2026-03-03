@@ -9,7 +9,7 @@ import {
   GraduationCap, Users, BookOpen, Trophy, MessageCircle, FileText,
   LogOut, Plus, Trash2, Edit, Upload, Eye, BarChart3, Settings,
   Home, Mail, Phone, User, ChevronRight, X, Save, Download, Search,
-  Bell, Image as ImageIcon, ToggleLeft, ToggleRight
+  Bell, Image as ImageIcon, ToggleLeft, ToggleRight, Camera
 } from 'lucide-react';
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_edu-result-portal/artifacts/yciyivjg_RW_SWAMI%20_FLEX.png';
@@ -103,6 +103,7 @@ export default function AdminPage() {
   const [settings, setSettings] = useState({});
   const [announcements, setAnnouncements] = useState([]);
   const [banners, setBanners] = useState([]);
+  const [galleryItems, setGalleryItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Form states
@@ -111,9 +112,11 @@ export default function AdminPage() {
   const [noteForm, setNoteForm] = useState({ title: '', subject: 'Physics', file_url: '' });
   const [announcementForm, setAnnouncementForm] = useState({ text: '', active: true, priority: 1 });
   const [bannerForm, setBannerForm] = useState({ title: '', description: '', image_url: '', active: true, order: 1 });
+  const [galleryForm, setGalleryForm] = useState({ image_url: '', caption: '', active: true, order: 1 });
   const [editingStaff, setEditingStaff] = useState(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [editingBanner, setEditingBanner] = useState(null);
+  const [editingGallery, setEditingGallery] = useState(null);
   const [directorMessage, setDirectorMessage] = useState('');
 
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
@@ -126,7 +129,7 @@ export default function AdminPage() {
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [statsR, staffR, coursesR, resultsR, notesR, contactsR, usersR, settingsR, announcementsR, bannersR] = await Promise.all([
+      const [statsR, staffR, coursesR, resultsR, notesR, contactsR, usersR, settingsR, announcementsR, bannersR, galleryR] = await Promise.all([
         fetch(`${API_BASE}/stats`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/staff`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/courses`, { headers }).then(r => r.json()),
@@ -137,6 +140,7 @@ export default function AdminPage() {
         fetch(`${API_BASE}/settings`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/announcements`, { headers }).then(r => r.json()),
         fetch(`${API_BASE}/banners`, { headers }).then(r => r.json()),
+        fetch(`${API_BASE}/gallery`, { headers }).then(r => r.json()),
       ]);
       setStats(statsR.stats || {});
       setStaff(staffR.staff || []);
@@ -150,6 +154,7 @@ export default function AdminPage() {
       setDirectorMessage(s.directorMessage || '');
       setAnnouncements(announcementsR.announcements || []);
       setBanners(bannersR.banners || []);
+      setGalleryItems(galleryR.gallery || []);
     } catch (err) {
       console.error('Fetch error:', err);
     }
@@ -291,6 +296,33 @@ export default function AdminPage() {
     fetchData();
   };
 
+  // Gallery CRUD
+  const addGalleryItem = async () => {
+    if (!galleryForm.image_url) return;
+    await fetch(`${API_BASE}/gallery`, { method: 'POST', headers, body: JSON.stringify(galleryForm) });
+    setGalleryForm({ image_url: '', caption: '', active: true, order: 1 });
+    fetchData();
+  };
+
+  const updateGalleryItem = async () => {
+    if (!editingGallery) return;
+    await fetch(`${API_BASE}/gallery`, { method: 'PUT', headers, body: JSON.stringify({ ...galleryForm, id: editingGallery }) });
+    setEditingGallery(null);
+    setGalleryForm({ image_url: '', caption: '', active: true, order: 1 });
+    fetchData();
+  };
+
+  const deleteGalleryItem = async (id) => {
+    if (!confirm('Delete this gallery image?')) return;
+    await fetch(`${API_BASE}/gallery?id=${id}`, { method: 'DELETE', headers });
+    fetchData();
+  };
+
+  const toggleGalleryItem = async (item) => {
+    await fetch(`${API_BASE}/gallery`, { method: 'PUT', headers, body: JSON.stringify({ id: item.id, active: !item.active }) });
+    fetchData();
+  };
+
   if (!token) return <AdminLogin onLogin={setToken} />;
 
   const sidebarItems = [
@@ -299,6 +331,7 @@ export default function AdminPage() {
     { key: 'results', label: 'Top Performers', icon: Trophy },
     { key: 'announcements', label: 'Announcements', icon: Bell },
     { key: 'banners', label: 'Banners', icon: ImageIcon },
+    { key: 'gallery', label: 'Gallery', icon: Camera },
     { key: 'notes', label: 'Notes / PDFs', icon: FileText },
     { key: 'contacts', label: 'Contact Enquiries', icon: Mail },
     { key: 'students', label: 'Registered Students', icon: User },
@@ -812,6 +845,82 @@ export default function AdminPage() {
                 </Card>
               ))}
               {banners.length === 0 && <p className="text-gray-400 text-center py-8">No banners yet</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Gallery */}
+        {activeTab === 'gallery' && (
+          <div>
+            <h2 className="text-2xl font-bold text-royal-800 mb-6">Gallery Management</h2>
+            <Card className="border-0 shadow-lg mb-6">
+              <CardHeader><CardTitle className="text-lg">{editingGallery ? 'Edit Gallery Image' : 'Add Gallery Image'}</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Image *</label>
+                    <input type="file" accept="image/*" className="text-sm" onChange={async (e) => {
+                      if (e.target.files[0]) {
+                        const url = await handleFileUpload(e.target.files[0], 'gallery');
+                        setGalleryForm(p => ({ ...p, image_url: url }));
+                      }
+                    }} />
+                    {galleryForm.image_url && <img src={galleryForm.image_url} alt="Preview" className="w-full h-24 object-cover rounded mt-2" />}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Caption</label>
+                    <Input value={galleryForm.caption} onChange={e => setGalleryForm(p => ({ ...p, caption: e.target.value }))} placeholder="Image caption" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Display Order</label>
+                    <Input type="number" value={galleryForm.order} onChange={e => setGalleryForm(p => ({ ...p, order: parseInt(e.target.value) || 1 }))} />
+                  </div>
+                  <div className="flex items-center gap-2 mt-6">
+                    <input type="checkbox" id="gallery_active" checked={galleryForm.active} onChange={e => setGalleryForm(p => ({ ...p, active: e.target.checked }))} />
+                    <label htmlFor="gallery_active" className="text-sm font-medium text-gray-700">Visible</label>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  {editingGallery ? (
+                    <>
+                      <Button onClick={updateGalleryItem} className="bg-royal-800 hover:bg-royal-700"><Save className="w-4 h-4 mr-2" /> Update</Button>
+                      <Button variant="outline" onClick={() => { setEditingGallery(null); setGalleryForm({ image_url: '', caption: '', active: true, order: 1 }); }}>Cancel</Button>
+                    </>
+                  ) : (
+                    <Button onClick={addGalleryItem} className="bg-royal-800 hover:bg-royal-700"><Plus className="w-4 h-4 mr-2" /> Add Image</Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {galleryItems.map(g => (
+                <Card key={g.id} className="border-0 shadow overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="aspect-[4/3] overflow-hidden bg-gray-100">
+                      <img src={g.image_url} alt={g.caption || 'Gallery'} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="p-3">
+                      <p className="text-xs font-medium truncate">{g.caption || 'No caption'}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <Badge className={`text-[10px] ${g.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{g.active ? 'Visible' : 'Hidden'}</Badge>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => toggleGalleryItem(g)}>
+                            {g.active ? <ToggleRight className="w-3 h-3 text-green-600" /> : <ToggleLeft className="w-3 h-3 text-gray-400" />}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingGallery(g.id); setGalleryForm({ image_url: g.image_url, caption: g.caption, active: g.active, order: g.order }); }}>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500" onClick={() => deleteGalleryItem(g.id)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {galleryItems.length === 0 && <p className="text-gray-400 text-center py-8 col-span-full">No gallery images yet</p>}
             </div>
           </div>
         )}
